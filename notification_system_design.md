@@ -348,3 +348,23 @@ dead_letter_queue.push(job)               # log for review
 - **Fault tolerant** — failed jobs retried automatically
 - **Scalable** — add more workers to handle load
 
+
+## Stage 6
+
+### Approach
+Fetched notifications from the provided API and implemented a Priority Inbox that displays the top 10 most important unread notifications.
+
+### Priority Logic
+Priority is determined by a combination of:
+- **Weight:** Placement (3) > Result (2) > Event (1)
+- **Recency:** More recent notifications ranked higher within same type
+
+### Score Formula
+
+```
+score = weight * 1e13 + timestamp_in_milliseconds
+```
+### How new notifications are handled efficiently
+- No database storage — API is called fresh each time
+- Sorting is O(n log n) — efficient even as new notifications come in
+- Top 10 sliced after sorting — constant output size
