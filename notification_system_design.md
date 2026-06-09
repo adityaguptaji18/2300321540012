@@ -166,3 +166,62 @@ WHERE studentId = $1;
 - Use pagination instead of fetching all notifications at once
 - Archive old notifications to a separate table
 
+
+## Stage 3
+
+### Query Analysis
+
+Original query:
+```sql
+SELECT * FROM notifications
+WHERE studentID = 1042 AND isRead = false
+ORDER BY createdAt ASC;
+```
+
+#### Is this query accurate?
+Yes, it fetches all unread notifications for a student ordered by creation time.
+
+#### Why is it slow?
+- `SELECT *` fetches all columns — unnecessary data transfer
+- No indexes on `studentId`, `isRead`, or `createdAt` — causes full table scan
+- With 5,000,000 rows, full table scan is very expensive
+
+#### What would I change?
+```sql
+SELECT id, studentId, type, message, isRead, createdAt
+FROM notifications
+WHERE studentId = 1042 AND isRead = false
+ORDER BY createdAt ASC;
+```
+
+#### Adding Indexes:
+```sql
+CREATE INDEX idx_studentId ON notifications(studentId);
+CREATE INDEX idx_isRead ON notifications(isRead);
+CREATE INDEX idx_createdAt ON notifications(createdAt);
+```
+
+#### Should we add indexes on every column?
+No. Adding indexes on every column is bad because:
+- Indexes slow down INSERT, UPDATE, DELETE operations
+- They consume extra disk space
+- Only index columns used frequently in WHERE, ORDER BY clauses
+
+#### Composite Index (better approach):
+```sql
+CREATE INDEX idx_student_unread ON notifications(studentId, isRead, createdAt);
+```
+This single index covers our query perfectly.
+
+#### Computation Cost:
+- Without index: O(n) — full table scan of 5M rows
+- With composite index: O(log n) — B-tree index lookup
+
+### Query to find students who got Placement notification in last 7 days:
+```sql
+SELECT DISTINCT studentId
+FROM notifications
+WHERE notificationType = 'Placement'
+AND createdAt >= NOW() - INTERVAL '7 days';
+```
+
