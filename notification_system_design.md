@@ -100,3 +100,69 @@ For real-time notifications, I would use **WebSockets** (via Socket.io).
 - `notification:read` → Confirms read status update
 - `disconnect` → Student leaves room
 
+
+
+## Stage 2
+
+### Database Selection
+
+I would use **PostgreSQL** (Relational Database).
+
+#### Why PostgreSQL?
+- Structured data with clear relationships (students, notifications)
+- ACID compliant — data integrity guaranteed
+- Supports indexing for fast queries
+- Easy to scale with proper indexing and partitioning
+
+### DB Schema
+
+```sql
+CREATE TABLE students (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  email VARCHAR(100) UNIQUE NOT NULL,
+  createdAt TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE notifications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  studentId INT NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+  type VARCHAR(20) CHECK (type IN ('Placement', 'Result', 'Event')) NOT NULL,
+  message TEXT NOT NULL,
+  isRead BOOLEAN DEFAULT false,
+  createdAt TIMESTAMP DEFAULT NOW()
+);
+```
+
+### Queries
+
+#### Get all unread notifications for a student:
+```sql
+SELECT * FROM notifications
+WHERE studentId = $1 AND isRead = false
+ORDER BY createdAt DESC;
+```
+
+#### Mark notification as read:
+```sql
+UPDATE notifications
+SET isRead = true
+WHERE id = $1;
+```
+
+#### Mark all notifications as read:
+```sql
+UPDATE notifications
+SET isRead = true
+WHERE studentId = $1;
+```
+
+### Problems as Data Volume Increases
+- Query speed will slow down with millions of rows
+- Full table scans will become expensive
+
+### Solutions
+- Add indexes on `studentId` and `createdAt`
+- Use pagination instead of fetching all notifications at once
+- Archive old notifications to a separate table
+
