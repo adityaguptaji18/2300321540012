@@ -277,3 +277,74 @@ Combine all three:
 - **WebSockets** for real-time new notification delivery
 
 
+## Stage 5
+
+### Original Pseudocode
+
+```
+function notify_all(student_ids: array, message: string):
+  for student_id in student_ids:
+    send_email(student_id, message)   # calls Email API
+    save_to_db(student_id, message)   # DB insert
+    push_to_app(student_id, message)  # real-time push
+```
+
+### Shortcomings
+
+1. **No fault tolerance** — if `send_email` fails for one student, entire loop stops. Remaining 49,800 students never get notified.
+2. **Synchronous processing** — 50,000 students processed one by one. Extremely slow.
+3. **Tight coupling** — email, DB save and push happen together. One failure blocks all.
+4. **No retry mechanism** — failed emails are lost forever.
+5. **No progress tracking** — no way to know how many succeeded or failed.
+
+### What happened when send_email failed for 200 students midway?
+- Loop stopped at student 200
+- Remaining ~49,800 students never received notification
+- DB saves for failed students may be inconsistent
+- No way to retry just the failed ones
+
+### Should DB save and email happen together?
+**No.** They should be decoupled because:
+- DB save is fast and local — should always succeed
+- Email is an external API call — can fail due to network issues
+- If they are coupled, email failure will also prevent DB save
+- DB save should happen first, email should be retried independently
+
+### Redesigned Solution — Message Queue
+
+Use a **Message Queue (e.g. Redis Queue / BullMQ)** for async processing:
+
+1. HR clicks "Notify All"
+2. All 50,000 student IDs are pushed to a queue instantly
+3. Multiple workers process the queue in parallel
+4. Each worker: save to DB first, then send email, then push to app
+5. If email fails → retry automatically (max 3 retries)
+6. Failed jobs go to a Dead Letter Queue for manual review
+
+### Revised Pseudocode
+
+```
+function notify_all(student_ids: array, message: string):
+for student_id in student_ids:
+queue.push({ student_id, message })  # non-blocking, instant
+
+Worker (runs in parallel, multiple instances)
+function worker(job):
+try:
+save_to_db(job.student_id, job.message)     # DB first
+send_email(job.student_id, job.message)     # then email
+push_to_app(job.student_id, job.message)    # then push
+catch error:
+if job.retries < 3:
+queue.retry(job)                          # retry on failure
+else:
+dead_letter_queue.push(job)               # log for review
+
+```
+
+### Benefits of Redesign
+- **Fast** — queue push is instant, workers process in parallel
+- **Reliable** — DB save decoupled from email
+- **Fault tolerant** — failed jobs retried automatically
+- **Scalable** — add more workers to handle load
+
