@@ -225,3 +225,55 @@ WHERE notificationType = 'Placement'
 AND createdAt >= NOW() - INTERVAL '7 days';
 ```
 
+## Stage 4
+
+### Problem
+Notifications are being fetched on every page load for every student, overwhelming the database and causing bad user experience.
+
+### Solutions
+
+#### 1. Caching (Redis)
+- Store notifications in Redis cache after first DB fetch
+- On next page load, serve from cache instead of DB
+- Set cache expiry (TTL) of 60 seconds
+
+**Tradeoffs:**
+- ✅ Very fast response time
+- ✅ DB load significantly reduced
+- ❌ Cache can become stale — new notifications may not show immediately
+- ❌ Extra infrastructure cost (Redis server)
+
+#### 2. Pagination
+- Instead of fetching all notifications at once, fetch 10-20 at a time
+- Use `LIMIT` and `OFFSET` in SQL query
+
+```sql
+SELECT * FROM notifications
+WHERE studentId = $1
+ORDER BY createdAt DESC
+LIMIT 20 OFFSET $2;
+```
+
+**Tradeoffs:**
+- ✅ Less data transferred per request
+- ✅ Faster response time
+- ❌ Multiple requests needed to load all notifications
+- ❌ OFFSET gets slower as page number increases (use cursor-based pagination for large data)
+
+#### 3. WebSocket / Real-Time Push
+- Instead of fetching on every page load, push notifications to client in real-time
+- DB is only queried when a new notification is created
+
+**Tradeoffs:**
+- ✅ No unnecessary DB queries
+- ✅ Instant notification delivery
+- ❌ More complex implementation
+- ❌ Persistent connection overhead
+
+### Recommended Approach
+Combine all three:
+- **Redis cache** for serving existing notifications fast
+- **Pagination** to limit data per request
+- **WebSockets** for real-time new notification delivery
+
+
