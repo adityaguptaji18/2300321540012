@@ -368,3 +368,23 @@ score = weight * 1e13 + timestamp_in_milliseconds
 - No database storage — API is called fresh each time
 - Sorting is O(n log n) — efficient even as new notifications come in
 - Top 10 sliced after sorting — constant output size
+
+
+## Stage 7
+
+### Approach
+Built a responsive React frontend with two pages:
+
+1. **All Notifications Page** — displays all notifications with read/unread distinction
+2. **Priority Inbox Page** — displays top n notifications filtered by type and sorted by priority
+
+### Features
+- Read/unread notifications distinguished by color and "New" badge
+- Click on notification to mark as read
+- Priority Inbox with limit and type filters
+- Responsive design for both desktop and mobile views
+
+### Tech Stack
+- React
+- Axios for API calls
+- React Router for navigation
