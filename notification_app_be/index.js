@@ -1,8 +1,9 @@
 import express from 'express';
 import axios from 'axios';
-
+import cors from 'cors';
 const app = express();
 app.use(express.json());
+app.use(cors());
 
 const API_URL = 'http://4.224.186.213/evaluation-service/notifications';
 const AUTH_URL = 'http://4.224.186.213/evaluation-service/auth';
